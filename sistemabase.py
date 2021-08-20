@@ -29,6 +29,7 @@ from PyQt5 import Qt
 from gnuradio import qtgui
 from gnuradio.filter import firdes
 import sip
+from b_EYE_Timing_f import b_EYE_Timing_f  # grc-generated hier_block
 from b_PSD_f import b_PSD_f  # grc-generated hier_block
 from b_binary_bipolar_source1_f import b_binary_bipolar_source1_f  # grc-generated hier_block
 from b_diezmador_ff import b_diezmador_ff  # grc-generated hier_block
@@ -41,6 +42,8 @@ import signal
 from argparse import ArgumentParser
 from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
+from gnuradio.qtgui import Range, RangeWidget
+from PyQt5 import QtCore
 import E3TRadio
 import mis_funciones  # embedded python module
 
@@ -84,19 +87,38 @@ class sistemabase(gr.top_block, Qt.QWidget):
         ##################################################
         # Variables
         ##################################################
-        self.Sps = Sps = 4
+        self.Sps = Sps = 8
         self.Rb = Rb = 32000
-        self.Nlob_n = Nlob_n = 64
+        self.Nlob_n = Nlob_n = 6
         self.samp_rate = samp_rate = Rb*Sps
         self.ntaps = ntaps = Nlob_n*Sps
         self.alpha = alpha = 0.5
         self.samp_rate_dac = samp_rate_dac = samp_rate*32
-        self.h = h = mis_funciones.rcos(Sps,ntaps,alpha)
+        self.h2 = h2 = mis_funciones.rrcos(Sps,ntaps,alpha)
+        self.h1 = h1 = mis_funciones.rcos(Sps,ntaps,alpha)
+        self.h0 = h0 = ([1]*Sps)
+        self.Retardo_bits = Retardo_bits = 2
+        self.Noise = Noise = 0
+        self.Dtiming = Dtiming = 7
         self.BW = BW = samp_rate/2
 
         ##################################################
         # Blocks
         ##################################################
+        self._Retardo_bits_range = Range(0, Sps*10, 1, 2, 200)
+        self._Retardo_bits_win = RangeWidget(self._Retardo_bits_range, self.set_Retardo_bits, 'Delay transmited signal to match with the received signal', "counter_slider", int, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._Retardo_bits_win, 1, 0, 1, 1)
+        for r in range(1, 2):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.top_grid_layout.setColumnStretch(c, 1)
+        self._Noise_range = Range(0, 4, 0.1, 0, 200)
+        self._Noise_win = RangeWidget(self._Noise_range, self.set_Noise, 'Noise', "counter_slider", float, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._Noise_win, 2, 0, 1, 1)
+        for r in range(2, 3):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.top_grid_layout.setColumnStretch(c, 1)
         self.Menu = Qt.QTabWidget()
         self.Menu_widget_0 = Qt.QWidget()
         self.Menu_layout_0 = Qt.QBoxLayout(Qt.QBoxLayout.TopToBottom, self.Menu_widget_0)
@@ -118,12 +140,23 @@ class sistemabase(gr.top_block, Qt.QWidget):
         self.Menu_grid_layout_3 = Qt.QGridLayout()
         self.Menu_layout_3.addLayout(self.Menu_grid_layout_3)
         self.Menu.addTab(self.Menu_widget_3, 'Eye Diagramm')
-        self.top_grid_layout.addWidget(self.Menu)
-        self.rational_resampler_xxx_0 = filter.rational_resampler_fff(
-                interpolation=32,
-                decimation=1,
-                taps=[],
-                fractional_bw=-1.0)
+        self.Menu_widget_4 = Qt.QWidget()
+        self.Menu_layout_4 = Qt.QBoxLayout(Qt.QBoxLayout.TopToBottom, self.Menu_widget_4)
+        self.Menu_grid_layout_4 = Qt.QGridLayout()
+        self.Menu_layout_4.addLayout(self.Menu_grid_layout_4)
+        self.Menu.addTab(self.Menu_widget_4, 'Timing')
+        self.top_grid_layout.addWidget(self.Menu, 4, 0, 1, 1)
+        for r in range(4, 5):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.top_grid_layout.setColumnStretch(c, 1)
+        self._Dtiming_range = Range(0, Sps, 1, 7, 200)
+        self._Dtiming_win = RangeWidget(self._Dtiming_range, self.set_Dtiming, 'Dtiming', "counter_slider", int, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._Dtiming_win, 0, 0, 1, 1)
+        for r in range(0, 1):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.top_grid_layout.setColumnStretch(c, 1)
         self.qtgui_time_sink_x_0_0 = qtgui.time_sink_f(
             ntaps, #size
             samp_rate, #samp_rate
@@ -229,14 +262,14 @@ class sistemabase(gr.top_block, Qt.QWidget):
         for c in range(0, 1):
             self.Menu_grid_layout_0.setColumnStretch(c, 1)
         self.qtgui_eye_sink_x_0 = qtgui.eye_sink_f(
-            1024*32, #size
-            samp_rate*32, #samp_rate
-            1, #number of inputs
+            1024, #size
+            samp_rate, #samp_rate
+            2, #number of inputs
             None
         )
         self.qtgui_eye_sink_x_0.set_update_time(0.10)
-        self.qtgui_eye_sink_x_0.set_samp_per_symbol(Sps*32)
-        self.qtgui_eye_sink_x_0.set_y_axis(-1, 1)
+        self.qtgui_eye_sink_x_0.set_samp_per_symbol(Sps)
+        self.qtgui_eye_sink_x_0.set_y_axis(-6, 6)
 
         self.qtgui_eye_sink_x_0.set_y_label('Amplitude', "")
 
@@ -248,9 +281,9 @@ class sistemabase(gr.top_block, Qt.QWidget):
         self.qtgui_eye_sink_x_0.enable_control_panel(False)
 
 
-        labels = ['Signal 1', 'Signal 2', 'Signal 3', 'Signal 4', 'Signal 5',
+        labels = ['R2', 'R2.0', 'Signal 3', 'Signal 4', 'Signal 5',
             'Signal 6', 'Signal 7', 'Signal 8', 'Signal 9', 'Signal 10']
-        widths = [1, 1, 1, 1, 1,
+        widths = [4, 4, 1, 1, 1,
             1, 1, 1, 1, 1]
         colors = ['blue', 'blue', 'blue', 'blue', 'blue',
             'blue', 'blue', 'blue', 'blue', 'blue']
@@ -262,7 +295,7 @@ class sistemabase(gr.top_block, Qt.QWidget):
             -1, -1, -1, -1, -1]
 
 
-        for i in range(1):
+        for i in range(2):
             if len(labels[i]) == 0:
                 self.qtgui_eye_sink_x_0.set_line_label(i, "Eye[Data {0}]".format(i))
             else:
@@ -279,10 +312,14 @@ class sistemabase(gr.top_block, Qt.QWidget):
             self.Menu_grid_layout_3.setRowStretch(r, 1)
         for c in range(0, 1):
             self.Menu_grid_layout_3.setColumnStretch(c, 1)
-        self.interp_fir_filter_xxx_0 = filter.interp_fir_filter_fff(Sps, h)
+        self.interp_fir_filter_xxx_0_0 = filter.interp_fir_filter_fff(1, h0)
+        self.interp_fir_filter_xxx_0_0.declare_sample_delay(0)
+        self.interp_fir_filter_xxx_0 = filter.interp_fir_filter_fff(Sps, h0)
         self.interp_fir_filter_xxx_0.declare_sample_delay(0)
         self.blocks_null_sink_0 = blocks.null_sink(gr.sizeof_float*1)
-        self.blocks_delay_0 = blocks.delay(gr.sizeof_float*1, int(Sps*3/4))
+        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_ff(1/Sps)
+        self.blocks_delay_1 = blocks.delay(gr.sizeof_float*1, Retardo_bits)
+        self.blocks_delay_0 = blocks.delay(gr.sizeof_float*1, Dtiming)
         self.blocks_add_xx_0 = blocks.add_vff(1)
         self.b_diezmador_ff_0 = b_diezmador_ff(
             Paso=Sps,
@@ -303,7 +340,25 @@ class sistemabase(gr.top_block, Qt.QWidget):
             self.Menu_grid_layout_1.setRowStretch(r, 1)
         for c in range(0, 1):
             self.Menu_grid_layout_1.setColumnStretch(c, 1)
-        self.analog_noise_source_x_0 = analog.noise_source_f(analog.GR_GAUSSIAN, 0.2, 0)
+        self.b_EYE_Timing_f_0 = b_EYE_Timing_f(
+            AlphaLineas=0.5,
+            Delay=0,
+            GrosorLineas=20,
+            N_eyes=2,
+            Retardo_Timing=Dtiming,
+            Samprate=samp_rate,
+            Sps=Sps,
+            Title="Eye Diagram and Timing",
+            Ymax=2,
+            Ymin=-2,
+        )
+
+        self.Menu_grid_layout_4.addWidget(self.b_EYE_Timing_f_0, 1, 0, 1, 1)
+        for r in range(1, 2):
+            self.Menu_grid_layout_4.setRowStretch(r, 1)
+        for c in range(0, 1):
+            self.Menu_grid_layout_4.setColumnStretch(c, 1)
+        self.analog_noise_source_x_0 = analog.noise_source_f(analog.GR_GAUSSIAN, Noise, 0)
         self.E3TRadio_bipolar_decisor_ff_0 = E3TRadio.bipolar_decisor_ff()
 
 
@@ -313,18 +368,22 @@ class sistemabase(gr.top_block, Qt.QWidget):
         ##################################################
         self.connect((self.E3TRadio_bipolar_decisor_ff_0, 0), (self.blocks_null_sink_0, 0))
         self.connect((self.E3TRadio_bipolar_decisor_ff_0, 0), (self.qtgui_time_sink_x_0, 1))
-        self.connect((self.analog_noise_source_x_0, 0), (self.blocks_add_xx_0, 1))
+        self.connect((self.analog_noise_source_x_0, 0), (self.blocks_add_xx_0, 0))
+        self.connect((self.b_binary_bipolar_source1_f_0, 0), (self.blocks_delay_1, 0))
         self.connect((self.b_binary_bipolar_source1_f_0, 0), (self.interp_fir_filter_xxx_0, 0))
-        self.connect((self.b_binary_bipolar_source1_f_0, 0), (self.qtgui_time_sink_x_0, 0))
         self.connect((self.b_diezmador_ff_0, 0), (self.E3TRadio_bipolar_decisor_ff_0, 0))
-        self.connect((self.blocks_add_xx_0, 0), (self.b_diezmador_ff_0, 0))
-        self.connect((self.blocks_add_xx_0, 0), (self.blocks_delay_0, 0))
+        self.connect((self.blocks_add_xx_0, 0), (self.interp_fir_filter_xxx_0_0, 0))
+        self.connect((self.blocks_add_xx_0, 0), (self.qtgui_eye_sink_x_0, 0))
         self.connect((self.blocks_add_xx_0, 0), (self.qtgui_time_sink_x_0_0, 1))
-        self.connect((self.blocks_delay_0, 0), (self.rational_resampler_xxx_0, 0))
+        self.connect((self.blocks_delay_0, 0), (self.b_diezmador_ff_0, 0))
+        self.connect((self.blocks_delay_0, 0), (self.qtgui_eye_sink_x_0, 1))
+        self.connect((self.blocks_delay_1, 0), (self.qtgui_time_sink_x_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.b_EYE_Timing_f_0, 0))
+        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.blocks_delay_0, 0))
         self.connect((self.interp_fir_filter_xxx_0, 0), (self.b_PSD_f_0, 0))
-        self.connect((self.interp_fir_filter_xxx_0, 0), (self.blocks_add_xx_0, 0))
+        self.connect((self.interp_fir_filter_xxx_0, 0), (self.blocks_add_xx_0, 1))
         self.connect((self.interp_fir_filter_xxx_0, 0), (self.qtgui_time_sink_x_0_0, 0))
-        self.connect((self.rational_resampler_xxx_0, 0), (self.qtgui_eye_sink_x_0, 0))
+        self.connect((self.interp_fir_filter_xxx_0_0, 0), (self.blocks_multiply_const_vxx_0, 0))
 
 
     def closeEvent(self, event):
@@ -340,12 +399,15 @@ class sistemabase(gr.top_block, Qt.QWidget):
 
     def set_Sps(self, Sps):
         self.Sps = Sps
-        self.set_h(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h0(([1]*self.Sps))
+        self.set_h1(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h2(mis_funciones.rrcos(self.Sps,self.ntaps,self.alpha))
         self.set_ntaps(self.Nlob_n*self.Sps)
         self.set_samp_rate(self.Rb*self.Sps)
+        self.b_EYE_Timing_f_0.set_Sps(self.Sps)
         self.b_diezmador_ff_0.set_Paso(self.Sps)
-        self.qtgui_eye_sink_x_0.set_samp_per_symbol(self.Sps*32)
-        self.blocks_delay_0.set_dly(int(self.Sps*3/4))
+        self.blocks_multiply_const_vxx_0.set_k(1/self.Sps)
+        self.qtgui_eye_sink_x_0.set_samp_per_symbol(self.Sps)
 
     def get_Rb(self):
         return self.Rb
@@ -369,8 +431,9 @@ class sistemabase(gr.top_block, Qt.QWidget):
         self.samp_rate = samp_rate
         self.set_BW(self.samp_rate/2)
         self.set_samp_rate_dac(self.samp_rate*32)
+        self.b_EYE_Timing_f_0.set_Samprate(self.samp_rate)
         self.b_PSD_f_0.set_samp_rate(self.samp_rate)
-        self.qtgui_eye_sink_x_0.set_samp_rate(self.samp_rate*32)
+        self.qtgui_eye_sink_x_0.set_samp_rate(self.samp_rate)
         self.qtgui_time_sink_x_0_0.set_samp_rate(self.samp_rate)
 
     def get_ntaps(self):
@@ -378,14 +441,16 @@ class sistemabase(gr.top_block, Qt.QWidget):
 
     def set_ntaps(self, ntaps):
         self.ntaps = ntaps
-        self.set_h(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h1(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h2(mis_funciones.rrcos(self.Sps,self.ntaps,self.alpha))
 
     def get_alpha(self):
         return self.alpha
 
     def set_alpha(self, alpha):
         self.alpha = alpha
-        self.set_h(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h1(mis_funciones.rcos(self.Sps,self.ntaps,self.alpha))
+        self.set_h2(mis_funciones.rrcos(self.Sps,self.ntaps,self.alpha))
 
     def get_samp_rate_dac(self):
         return self.samp_rate_dac
@@ -393,12 +458,47 @@ class sistemabase(gr.top_block, Qt.QWidget):
     def set_samp_rate_dac(self, samp_rate_dac):
         self.samp_rate_dac = samp_rate_dac
 
-    def get_h(self):
-        return self.h
+    def get_h2(self):
+        return self.h2
 
-    def set_h(self, h):
-        self.h = h
-        self.interp_fir_filter_xxx_0.set_taps(self.h)
+    def set_h2(self, h2):
+        self.h2 = h2
+
+    def get_h1(self):
+        return self.h1
+
+    def set_h1(self, h1):
+        self.h1 = h1
+
+    def get_h0(self):
+        return self.h0
+
+    def set_h0(self, h0):
+        self.h0 = h0
+        self.interp_fir_filter_xxx_0.set_taps(self.h0)
+        self.interp_fir_filter_xxx_0_0.set_taps(self.h0)
+
+    def get_Retardo_bits(self):
+        return self.Retardo_bits
+
+    def set_Retardo_bits(self, Retardo_bits):
+        self.Retardo_bits = Retardo_bits
+        self.blocks_delay_1.set_dly(self.Retardo_bits)
+
+    def get_Noise(self):
+        return self.Noise
+
+    def set_Noise(self, Noise):
+        self.Noise = Noise
+        self.analog_noise_source_x_0.set_amplitude(self.Noise)
+
+    def get_Dtiming(self):
+        return self.Dtiming
+
+    def set_Dtiming(self, Dtiming):
+        self.Dtiming = Dtiming
+        self.b_EYE_Timing_f_0.set_Retardo_Timing(self.Dtiming)
+        self.blocks_delay_0.set_dly(self.Dtiming)
 
     def get_BW(self):
         return self.BW
